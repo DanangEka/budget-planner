@@ -212,9 +212,9 @@ function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 p-6 font-sans text-gray-900">
-      <div className="max-w-3xl mx-auto bg-white bg-opacity-90 rounded-xl shadow-lg p-8">
-        <h1 className="text-4xl font-extrabold mb-6 text-center">💰 Rencana Keuangan Bersama</h1>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 p-4 sm:p-6 font-sans text-gray-900">
+      <div className="max-w-3xl mx-auto bg-white bg-opacity-90 rounded-xl shadow-lg p-4 sm:p-8">
+        <h1 className="text-3xl sm:text-4xl font-extrabold mb-6 text-center">💰 Rencana Keuangan Bersama</h1>
 
         {user ? (
           <>
@@ -239,13 +239,13 @@ function App() {
               <label className="block mb-2 font-medium">
                 {editIndex !== null ? "Edit nominal:" : "Masukkan nominal pemasukan:"}
               </label>
-              <div className="flex space-x-2">
+              <div className="flex flex-col sm:flex-row sm:space-x-2">
                 <input
                   type="number"
                   value={newNominal}
                   onChange={(e) => setNewNominal(e.target.value)}
                   placeholder="Contoh: 2500000"
-                  className="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition"
+                  className="flex-grow px-4 py-2 mb-2 sm:mb-0 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400 transition"
                 />
                 <button
                   onClick={handleAddOrUpdate}
@@ -257,29 +257,29 @@ function App() {
             </div>
 
             {/* Filter & sort */}
-            <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-              <select onChange={(e) => setFilterUser(e.target.value)} className="p-2 border rounded">
+            <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <select onChange={(e) => setFilterUser(e.target.value)} className="p-2 border rounded w-full">
                 <option value="">Semua User</option>
                 {[...new Set(history.map(item => item.by))].map(user => (
                   <option key={user} value={user}>{user}</option>
                 ))}
               </select>
 
-              <select onChange={(e) => setFilterMonth(e.target.value)} className="p-2 border rounded">
+              <select onChange={(e) => setFilterMonth(e.target.value)} className="p-2 border rounded w-full">
                 <option value="">Semua Bulan</option>
                 {Array.from({ length: 12 }, (_, i) => (
                   <option key={i + 1} value={i + 1}>{i + 1}</option>
                 ))}
               </select>
 
-              <select onChange={(e) => setFilterYear(e.target.value)} className="p-2 border rounded">
+              <select onChange={(e) => setFilterYear(e.target.value)} className="p-2 border rounded w-full">
                 <option value="">Semua Tahun</option>
                 {[...new Set(history.map(item => new Date(item.date).getFullYear()))].map(year => (
                   <option key={year} value={year}>{year}</option>
                 ))}
               </select>
 
-              <select onChange={(e) => setSortOrder(e.target.value)} className="p-2 border rounded">
+              <select onChange={(e) => setSortOrder(e.target.value)} className="p-2 border rounded w-full">
                 <option value="">Urutan Nominal</option>
                 <option value="asc">Terkecil → Terbesar</option>
                 <option value="desc">Terbesar → Terkecil</option>

@@ -45,7 +45,7 @@ function HargaEmasChart({ totalTabungan }) {
     <div className="bg-white rounded-lg shadow p-4 my-6">
       <h2 className="text-xl font-bold mb-2">📊 Harga Emas 1 Gram per Hari</h2>
 
-      <div className="h-64">
+      <div className="h-40 sm:h-64">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
             <XAxis dataKey="tanggal" />
