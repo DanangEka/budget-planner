@@ -1,3 +1,4 @@
+// App.js
 import React, { useEffect, useState } from "react";
 import { auth } from "./firebase";
 import {
@@ -13,7 +14,7 @@ import {
 import { db } from "./firebase";
 import Login from "./Login";
 
-const SHARED_GROUP_ID = "keluarga123"; // <- ID dokumen shared
+const SHARED_GROUP_ID = "keluarga123";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -27,6 +28,7 @@ function App() {
   const [filterMonth, setFilterMonth] = useState("");
   const [filterYear, setFilterYear] = useState("");
   const [sortOrder, setSortOrder] = useState("");
+  const [penggunaanForm, setPenggunaanForm] = useState({ jumlah: "", keterangan: "" });
 
   const docRef = doc(db, "budgets", SHARED_GROUP_ID);
 
@@ -70,7 +72,11 @@ function App() {
     const detail = {
       nominal: income,
       date,
-      kebutuhan,
+      kebutuhan: {
+        total: kebutuhan,
+        sisa: kebutuhan,
+        penggunaan: []
+      },
       tabungan,
       hiburan,
       darurat,
@@ -91,6 +97,44 @@ function App() {
     setSelectedDetail(detail);
     setNewNominal("");
     setEditIndex(null);
+  };
+
+  const handleAddPenggunaan = async (index) => {
+    const jumlah = parseInt(penggunaanForm.jumlah);
+    const keterangan = penggunaanForm.keterangan;
+    if (!jumlah || jumlah <= 0 || !keterangan) {
+      alert("Isi jumlah dan keterangan dengan benar.");
+      return;
+    }
+
+    const updatedHistory = [...history];
+    const item = updatedHistory[index];
+
+    if (!item.kebutuhan || typeof item.kebutuhan !== "object") return;
+
+    item.kebutuhan.penggunaan = item.kebutuhan.penggunaan || [];
+    const totalTerpakai = item.kebutuhan.penggunaan.reduce((acc, p) => acc + p.jumlah, 0);
+    const sisaSebelum = item.kebutuhan.total - totalTerpakai;
+
+    if (jumlah > sisaSebelum) {
+      alert("Pengeluaran melebihi sisa kebutuhan!");
+      return;
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+
+    item.kebutuhan.penggunaan.push({
+      tanggal: today,
+      jumlah,
+      keterangan
+    });
+
+    item.kebutuhan.sisa = item.kebutuhan.total - item.kebutuhan.penggunaan.reduce((acc, p) => acc + p.jumlah, 0);
+
+    await setDoc(docRef, { history: updatedHistory });
+    setHistory(updatedHistory);
+    setSelectedDetail(item);
+    setPenggunaanForm({ jumlah: "", keterangan: "" });
   };
 
   const handleDelete = async (index) => {
@@ -166,9 +210,7 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 p-6 font-sans text-gray-900">
       <div className="max-w-3xl mx-auto bg-white bg-opacity-90 rounded-xl shadow-lg p-8">
-        <h1 className="text-4xl font-extrabold mb-6 text-center">
-          💰 Rencana Keuangan Bersama
-        </h1>
+        <h1 className="text-4xl font-extrabold mb-6 text-center">💰 Rencana Keuangan Bersama</h1>
 
         {user ? (
           <>
@@ -182,6 +224,7 @@ function App() {
               </button>
             </div>
 
+            {/* Input nominal */}
             <div className="mb-6">
               <label className="block mb-2 font-medium">
                 {editIndex !== null ? "Edit nominal:" : "Masukkan nominal pemasukan:"}
@@ -203,6 +246,7 @@ function App() {
               </div>
             </div>
 
+            {/* Filter & sort */}
             <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
               <select onChange={(e) => setFilterUser(e.target.value)} className="p-2 border rounded">
                 <option value="">Semua User</option>
@@ -232,21 +276,82 @@ function App() {
               </select>
             </div>
 
+            {/* Detail penggunaan */}
             {selectedDetail && (
               <div className="transition-all duration-500 ease-in-out bg-gray-100 p-4 rounded-md shadow mb-6">
                 <h3 className="text-lg font-semibold mb-2">📊 Rincian Alokasi:</h3>
                 <p>Tanggal: {selectedDetail.date}</p>
                 <p>Nominal: Rp {selectedDetail.nominal?.toLocaleString("id-ID")}</p>
-                <p>Kebutuhan: Rp {selectedDetail.kebutuhan?.toLocaleString("id-ID")}</p>
+                <p>Kebutuhan: Rp {selectedDetail.kebutuhan?.total?.toLocaleString("id-ID")}</p>
                 <p>Tabungan: Rp {selectedDetail.tabungan?.toLocaleString("id-ID")}</p>
                 <p>Hiburan: Rp {selectedDetail.hiburan?.toLocaleString("id-ID")}</p>
                 <p>Darurat: Rp {selectedDetail.darurat?.toLocaleString("id-ID")}</p>
                 <p className="text-sm text-gray-500 mt-2">
                   Ditambahkan oleh: {selectedDetail.by}
                 </p>
+
+                <div className="mt-4">
+                  {selectedDetail.kebutuhan?.penggunaan?.length > 0 && (
+                    <>
+                      <h4 className="font-semibold mb-1">📟 Penggunaan Kebutuhan:</h4>
+                      <ul className="list-disc pl-5 text-sm text-gray-700">
+                        {selectedDetail.kebutuhan.penggunaan.map((p, idx) => (
+                          <li key={idx}>
+                            {p.tanggal}: {p.keterangan} - Rp {p.jumlah.toLocaleString("id-ID")}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+
+                  {selectedDetail.kebutuhan?.sisa !== undefined && (
+                    <p className="mt-2 text-sm text-green-700">
+                      💡 Sisa kebutuhan: Rp {selectedDetail.kebutuhan.sisa.toLocaleString("id-ID")}
+                    </p>
+                  )}
+
+                  <div className="mt-4">
+                    <h4 className="font-semibold mb-1">➕ Tambah Penggunaan Dana Kebutuhan</h4>
+                    <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                      <input
+                        type="number"
+                        value={penggunaanForm.jumlah}
+                        onChange={(e) =>
+                          setPenggunaanForm({ ...penggunaanForm, jumlah: e.target.value })
+                        }
+                        placeholder="Jumlah (Rp)"
+                        className="px-3 py-2 border rounded-md w-full sm:w-1/3"
+                      />
+                      <input
+                        type="text"
+                        value={penggunaanForm.keterangan}
+                        onChange={(e) =>
+                          setPenggunaanForm({ ...penggunaanForm, keterangan: e.target.value })
+                        }
+                        placeholder="Keterangan"
+                        className="px-3 py-2 border rounded-md w-full sm:w-2/3"
+                      />
+                      <button
+                        onClick={() =>
+                          handleAddPenggunaan(
+                            history.findIndex(
+                              (h) =>
+                                h.date === selectedDetail.date &&
+                                h.nominal === selectedDetail.nominal
+                            )
+                          )
+                        }
+                        className="bg-blue-500 text-white px-4 py-2 rounded-md"
+                      >
+                        Tambah
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
+            {/* Riwayat */}
             <h2 className="text-2xl font-bold mb-4">📅 Riwayat Pemasukan</h2>
             <div className="space-y-4 max-h-96 overflow-y-auto">
               {filteredHistory.map((item, i) => (
