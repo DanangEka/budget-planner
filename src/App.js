@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import Login from "./Login";
+import HargaEmasChart from "./components/HargaEmasChart";
 
 const SHARED_GROUP_ID = "keluarga123";
 
@@ -29,6 +30,9 @@ function App() {
   const [filterYear, setFilterYear] = useState("");
   const [sortOrder, setSortOrder] = useState("");
   const [penggunaanForm, setPenggunaanForm] = useState({ jumlah: "", keterangan: "" });
+
+  const [hargaEmas, setHargaEmas] = useState(0);
+  const totalTabungan = history.reduce((acc, item) => acc + (item.tabungan || 0), 0);
 
   const docRef = doc(db, "budgets", SHARED_GROUP_ID);
 
@@ -223,6 +227,12 @@ function App() {
                 Logout
               </button>
             </div>
+            
+            <HargaEmasChart
+              totalTabungan={totalTabungan}
+              onHargaUpdate={setHargaEmas}
+            />
+
 
             {/* Input nominal */}
             <div className="mb-6">
@@ -282,7 +292,9 @@ function App() {
                 <h3 className="text-lg font-semibold mb-2">📊 Rincian Alokasi:</h3>
                 <p>Tanggal: {selectedDetail.date}</p>
                 <p>Nominal: Rp {selectedDetail.nominal?.toLocaleString("id-ID")}</p>
-                <p>Kebutuhan: Rp {selectedDetail.kebutuhan?.total?.toLocaleString("id-ID")}</p>
+                {console.log("DEBUG: selectedDetail.kebutuhan", selectedDetail.kebutuhan)}
+                <p>Kebutuhan: Rp {Number(selectedDetail.kebutuhan?.total || 0).toLocaleString("id-ID")}{" "}
+                    (sisa: Rp {Number(selectedDetail.kebutuhan?.sisa || 0).toLocaleString("id-ID")})</p>
                 <p>Tabungan: Rp {selectedDetail.tabungan?.toLocaleString("id-ID")}</p>
                 <p>Hiburan: Rp {selectedDetail.hiburan?.toLocaleString("id-ID")}</p>
                 <p>Darurat: Rp {selectedDetail.darurat?.toLocaleString("id-ID")}</p>
@@ -306,7 +318,7 @@ function App() {
 
                   {selectedDetail.kebutuhan?.sisa !== undefined && (
                     <p className="mt-2 text-sm text-green-700">
-                      💡 Sisa kebutuhan: Rp {selectedDetail.kebutuhan.sisa.toLocaleString("id-ID")}
+                      💡 Sisa kebutuhan: Rp {Number(selectedDetail.kebutuhan?.sisa || selectedDetail.kebutuhan?.Sisa || 0).toLocaleString("id-ID")}
                     </p>
                   )}
 
