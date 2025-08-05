@@ -43,7 +43,8 @@ function App() {
   const [sortOrder, setSortOrder] = useState("");
   const [penggunaanForm, setPenggunaanForm] = useState({ jumlah: "", keterangan: "" });
   
-  
+  const [hargaUBS, setHargaUBS] = useState(null);
+  const [hargaAntam, setHargaAntam] = useState(null);
   const [totalTabungan, setTotalTabungan] = useState(0);
 
   useEffect(() => {
@@ -135,12 +136,20 @@ function App() {
       sisa: kebutuhanTotal,
       penggunaan: [],
     },
-    hiburan,
+    hiburan: {
+      total: hiburan,
+      sisa: hiburan,
+      penggunaan: [],
+    },
     mama,
     emak,
     sedekah,
     tabungan,
-    darurat,
+    darurat: {
+      total: darurat,
+      sisa: darurat,
+      penggunaan: [],
+    },
   };
 
   let updatedHistory;
@@ -162,6 +171,38 @@ function App() {
   } catch (error) {
     console.error("Gagal menyimpan ke Firestore:", error);
   }
+};
+
+const handleAddPenggunaanKebutuhan = async (index, jumlah, keterangan) => {
+  const updatedHistory = [...history];
+  const item = updatedHistory[index];
+
+  if (!item || !item.kebutuhan || typeof item.kebutuhan !== "object") {
+    alert("Data kebutuhan tidak tersedia.");
+    return;
+  }
+
+  item.kebutuhan.penggunaan = item.kebutuhan.penggunaan || [];
+
+  const totalTerpakai = item.kebutuhan.penggunaan.reduce((acc, p) => acc + p.jumlah, 0);
+  const sisaSebelum = item.kebutuhan.total - totalTerpakai;
+
+  if (jumlah > sisaSebelum) {
+    alert("Pengeluaran melebihi sisa kebutuhan!");
+    return;
+  }
+
+  const today = new Date().toISOString().split("T")[0];
+
+  item.kebutuhan.penggunaan.push({ tanggal: today, jumlah, keterangan });
+
+  // Hitung ulang sisa
+  const totalPenggunaan = item.kebutuhan.penggunaan.reduce((acc, p) => acc + p.jumlah, 0);
+  item.kebutuhan.sisa = item.kebutuhan.total - totalPenggunaan;
+
+  await setDoc(docRef, { history: updatedHistory });
+  setHistory(updatedHistory);
+  setSelectedDetail(item);
 };
 
   const handleAddPenggunaan = async (index) => {
@@ -254,6 +295,95 @@ function App() {
 
     setFilteredHistory(filtered);
   };
+  const [hiburanForm, setHiburanForm] = useState({ jumlah: "", keterangan: "" });
+const [daruratForm, setDaruratForm] = useState({ jumlah: "", keterangan: "" });
+
+const handleAddHiburan = async (detail) => {
+  if (!hiburanForm.jumlah || !hiburanForm.keterangan) {
+    alert("Isi jumlah dan keterangan hiburan dengan benar.");
+    return;
+  }
+
+  const tanggal = new Date().toISOString().split("T")[0];
+  const updated = [...history];
+  const idx = updated.findIndex(
+    (d) => d.date === detail.date && d.nominal === detail.nominal
+  );
+  if (idx === -1) return;
+
+  // Perbaikan: pastikan hiburan adalah objek
+  if (typeof updated[idx].hiburan === "number") {
+    const nominal = updated[idx].hiburan;
+    updated[idx].hiburan = {
+      total: nominal,
+      sisa: nominal,
+      penggunaan: [],
+    };
+  }
+
+  updated[idx].hiburan.penggunaan = updated[idx].hiburan.penggunaan || [];
+
+  updated[idx].hiburan.penggunaan.push({
+    tanggal,
+    jumlah: parseInt(hiburanForm.jumlah),
+    keterangan: hiburanForm.keterangan,
+  });
+
+  const totalPenggunaan = updated[idx].hiburan.penggunaan.reduce(
+    (acc, p) => acc + p.jumlah,
+    0
+  );
+  updated[idx].hiburan.sisa = updated[idx].hiburan.total - totalPenggunaan;
+
+  await setDoc(docRef, { history: updated });
+  setHistory(updated);
+  setSelectedDetail(updated[idx]);
+  setHiburanForm({ jumlah: "", keterangan: "" });
+};
+
+
+const handleAddDarurat = async (detail) => {
+  if (!daruratForm.jumlah || !daruratForm.keterangan) {
+    alert("Isi jumlah dan keterangan darurat dengan benar.");
+    return;
+  }
+
+  const tanggal = new Date().toISOString().split("T")[0];
+  const updated = [...history];
+  const idx = updated.findIndex(
+    (d) => d.date === detail.date && d.nominal === detail.nominal
+  );
+  if (idx === -1) return;
+
+  // Perbaikan: pastikan darurat adalah objek
+  if (typeof updated[idx].darurat === "number") {
+    const nominal = updated[idx].darurat;
+    updated[idx].darurat = {
+      total: nominal,
+      sisa: nominal,
+      penggunaan: [],
+    };
+  }
+
+  updated[idx].darurat.penggunaan = updated[idx].darurat.penggunaan || [];
+
+  updated[idx].darurat.penggunaan.push({
+    tanggal,
+    jumlah: parseInt(daruratForm.jumlah),
+    keterangan: daruratForm.keterangan,
+  });
+
+  const totalPenggunaan = updated[idx].darurat.penggunaan.reduce(
+    (acc, p) => acc + p.jumlah,
+    0
+  );
+  updated[idx].darurat.sisa = updated[idx].darurat.total - totalPenggunaan;
+
+  await setDoc(docRef, { history: updated });
+  setHistory(updated);
+  setSelectedDetail(updated[idx]);
+  setDaruratForm({ jumlah: "", keterangan: "" });
+};
 
   useEffect(() => {
     applyFilters();
@@ -271,6 +401,9 @@ function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  console.log("Harga UBS:", hargaUBS);
+  console.log("Harga Antam:", hargaAntam);
 
   return (          
     <div className="min-h-screen relative bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 p-4 sm:p-6 font-sans text-gray-900">
@@ -335,6 +468,10 @@ function App() {
                 <HargaEmasChart
                   totalTabungan={totalTabungan}
                   setTotalTabungan={setTotalTabungan}
+                  setHargaUBS={setHargaUBS}
+                  setHargaAntam={setHargaAntam}
+                  hargaUBS={hargaUBS}
+                  hargaAntam={hargaAntam}
                 />
                 {/* Tambahkan fitur emas lain di sini jika perlu */}
               </>
@@ -425,63 +562,103 @@ function App() {
       </div>
     </div>
 
-    {selectedDetail?.date === item.date && selectedDetail?.nominal === item.nominal && (
-      <div className="transition-all duration-500 ease-in-out bg-gray-100 p-4 rounded-md shadow mt-2">
-        <h3 className="text-lg font-semibold mb-2">📊 Rincian Alokasi:</h3>
-        <p>Tanggal: {selectedDetail.date}</p>
-        <p>Nominal: Rp {selectedDetail.nominal?.toLocaleString("id-ID")}</p>
-        <p>Kebutuhan: Rp {Number(selectedDetail.kebutuhan?.total || 0).toLocaleString("id-ID")}{" "}
-          (sisa: Rp {Number(selectedDetail.kebutuhan?.sisa || 0).toLocaleString("id-ID")})</p>
-        <p>Tabungan: Rp {selectedDetail.tabungan?.toLocaleString("id-ID")}</p>
-        <p>Hiburan: Rp {selectedDetail.hiburan?.toLocaleString("id-ID")}</p>
-        <p>Darurat: Rp {selectedDetail.darurat?.toLocaleString("id-ID")}</p>
-        <p>Mama: Rp {selectedDetail.mama?.toLocaleString("id-ID")}</p>
-        <p>Emak: Rp {selectedDetail.emak?.toLocaleString("id-ID")}</p>
-        <p>Sedekah: Rp {selectedDetail.sedekah?.toLocaleString("id-ID")}</p>
-        <p className="text-sm text-gray-500 mt-2">
-          Ditambahkan oleh: {selectedDetail.by}
-        </p>
+{selectedDetail?.date === item.date && selectedDetail?.nominal === item.nominal && (
+  <div className="transition-all duration-500 ease-in-out bg-gray-100 p-4 rounded-md shadow mt-2">
+    <h3 className="text-lg font-semibold mb-2">📊 Rincian Alokasi:</h3>
+    <p>Tanggal: {selectedDetail.date}</p>
+    <p>Nominal: Rp {selectedDetail.nominal?.toLocaleString("id-ID")}</p>
+    <p>
+      Kebutuhan: Rp {Number(selectedDetail.kebutuhan?.total || 0).toLocaleString("id-ID")}{" "}
+      (sisa: Rp {Number(selectedDetail.kebutuhan?.sisa || 0).toLocaleString("id-ID")})
+    </p>
+    <p>Tabungan: Rp {selectedDetail.tabungan?.toLocaleString("id-ID")}</p>
+    <p>Hiburan: Rp {Number(selectedDetail.hiburan?.total || 0).toLocaleString("id-ID")} (sisa: Rp {Number(selectedDetail.hiburan?.sisa || 0).toLocaleString("id-ID")})</p>
+    <p>Darurat: Rp {Number(selectedDetail.darurat?.total || 0).toLocaleString("id-ID")} (sisa: Rp {Number(selectedDetail.darurat?.sisa || 0).toLocaleString("id-ID")})</p>
+    <p>Mama: Rp {selectedDetail.mama?.toLocaleString("id-ID")}</p>
+    <p>Emak: Rp {selectedDetail.emak?.toLocaleString("id-ID")}</p>
+    <p>Sedekah: Rp {selectedDetail.sedekah?.toLocaleString("id-ID")}</p>
+    <p className="text-sm text-gray-500 mt-2">Ditambahkan oleh: {selectedDetail.by}</p>
 
-        <div className="mt-4">
-          {selectedDetail.kebutuhan?.penggunaan?.length > 0 && (
-            <>
-              <h4 className="font-semibold mb-1">📟 Penggunaan Kebutuhan:</h4>
-              <ul className="list-disc pl-5 text-sm text-gray-700">
-                {selectedDetail.kebutuhan.penggunaan.map((p, idx) => (
-                  <li key={idx}>
-                    {p.tanggal}: {p.keterangan} - Rp {p.jumlah.toLocaleString("id-ID")}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+    {/* === PENGGUNAAN KEBUTUHAN === */}
+    <div className="mt-4">
+      <h4 className="font-semibold mb-1">📟 Penggunaan Kebutuhan:</h4>
+      {selectedDetail.kebutuhan?.penggunaan?.map((p, idx) => (
+        <div key={idx} className="flex flex-col sm:flex-row items-center gap-2 mb-2">
+          <span>{p.tanggal}</span>
+          <input
+            type="text"
+            value={p.keterangan}
+            onChange={(e) => {
+              const newData = [...selectedDetail.kebutuhan.penggunaan];
+              newData[idx].keterangan = e.target.value;
+              setSelectedDetail({
+                ...selectedDetail,
+                kebutuhan: {
+                  ...selectedDetail.kebutuhan,
+                  penggunaan: newData,
+                },
+              });
+            }}
+            className="border px-2 py-1 rounded w-1/2"
+          />
+          <input
+            type="number"
+            value={p.jumlah}
+            onChange={(e) => {
+              const newData = [...selectedDetail.kebutuhan.penggunaan];
+              newData[idx].jumlah = parseInt(e.target.value || 0);
+              const sisa = selectedDetail.kebutuhan.total - newData.reduce((a, b) => a + b.jumlah, 0);
+              setSelectedDetail({
+                ...selectedDetail,
+                kebutuhan: {
+                  ...selectedDetail.kebutuhan,
+                  penggunaan: newData,
+                  sisa,
+                },
+              });
+            }}
+            className="border px-2 py-1 rounded w-28"
+          />
+          <button
+            className="text-sm text-blue-500 underline"
+            onClick={async () => {
+              const updatedHistory = [...history];
+              const hIdx = updatedHistory.findIndex(
+                (h) => h.date === selectedDetail.date && h.nominal === selectedDetail.nominal
+              );
+              if (hIdx !== -1) {
+                updatedHistory[hIdx].kebutuhan.penggunaan = selectedDetail.kebutuhan.penggunaan;
+                updatedHistory[hIdx].kebutuhan.sisa = selectedDetail.kebutuhan.sisa;
+                await setDoc(docRef, { history: updatedHistory });
+                setHistory(updatedHistory);
+              }
+            }}
+          >
+            Simpan
+          </button>
+        </div>
+      ))}
 
-          <p className="mt-2 text-sm text-green-700">
-            💡 Sisa kebutuhan: Rp {Number(selectedDetail.kebutuhan?.sisa || 0).toLocaleString("id-ID")}
-          </p>
-
-          <div className="mt-4">
-            <h4 className="font-semibold mb-1">➕ Tambah Penggunaan Dana Kebutuhan</h4>
-            <div className="flex flex-col sm:flex-row gap-2 mt-2">
-              <input
-                type="number"
-                value={penggunaanForm.jumlah}
-                onChange={(e) =>
-                  setPenggunaanForm({ ...penggunaanForm, jumlah: e.target.value })
-                }
-                placeholder="Jumlah (Rp)"
-                className="px-3 py-2 border rounded-md w-full sm:w-1/3"
-              />
-              <input
-                type="text"
-                value={penggunaanForm.keterangan}
-                onChange={(e) =>
-                  setPenggunaanForm({ ...penggunaanForm, keterangan: e.target.value })
-                }
-                placeholder="Keterangan"
-                className="px-3 py-2 border rounded-md w-full sm:w-2/3"
-              />
-              <button
+      {/* Tambah Penggunaan Kebutuhan */}
+      <div className="mt-4">
+        <h4 className="font-semibold mb-1">➕ Tambah Penggunaan Dana Kebutuhan</h4>
+        <div className="flex flex-col sm:flex-row gap-2 mt-2">
+          <input
+            type="number"
+            value={penggunaanForm.jumlah}
+            onChange={(e) => setPenggunaanForm({ ...penggunaanForm, jumlah: e.target.value })}
+            placeholder="Jumlah (Rp)"
+            className="px-3 py-2 border rounded-md w-full sm:w-1/3"
+          />
+          <input
+            type="text"
+            value={penggunaanForm.keterangan}
+            onChange={(e) => setPenggunaanForm({ ...penggunaanForm, keterangan: e.target.value })}
+            placeholder="Keterangan"
+            className="px-3 py-2 border rounded-md w-full sm:w-2/3"
+          />
+        </div>
+        <button
                 onClick={() =>
                   handleAddPenggunaan(
                     history.findIndex(
@@ -495,10 +672,83 @@ function App() {
               >
                 Tambah
               </button>
+        <button
+          onClick={() => handleAddPenggunaanKebutuhan(selectedDetail)}
+          className="mt-2 px-3 py-1 bg-blue-600 text-white rounded"
+        >
+          Simpan Penggunaan
+        </button>
+      </div>
+
+      {/* === Penggunaan Hiburan === */}
+      <div className="mt-6">
+        <h4 className="font-semibold mb-1">🎮 Penggunaan Dana Hiburan</h4>
+        <ul className="text-sm text-gray-700 list-disc pl-5">
+          {selectedDetail.hiburan?.penggunaan?.map((p, idx) => (
+            <li key={idx}>
+              {p.tanggal}: {p.keterangan} - Rp {p.jumlah.toLocaleString("id-ID")}
+            </li>
+          ))}
+        </ul>
+        <div className="flex flex-col sm:flex-row gap-2 mt-2">
+          <input
+            type="number"
+            placeholder="Jumlah (Rp)"
+            value={hiburanForm.jumlah}
+            onChange={(e) => setHiburanForm({ ...hiburanForm, jumlah: e.target.value })}
+            className="px-3 py-2 border rounded-md w-full sm:w-1/3"
+          />
+          <input
+            type="text"
+            placeholder="Keterangan"
+            value={hiburanForm.keterangan}
+            onChange={(e) => setHiburanForm({ ...hiburanForm, keterangan: e.target.value })}
+            className="px-3 py-2 border rounded-md w-full sm:w-2/3"
+          />
+        </div>
+        <button
+          onClick={() => handleAddHiburan(selectedDetail)}
+          className="mt-2 px-3 py-1 bg-purple-600 text-white rounded"
+        >
+          Tambahkan Penggunaan Hiburan
+        </button>
+      </div>
+
+      {/* === Penggunaan Darurat === */}
+      <div className="mt-6">
+        <h4 className="font-semibold mb-1">🧯 Penggunaan Dana Darurat</h4>
+        <ul className="text-sm text-gray-700 list-disc pl-5">
+          {selectedDetail.darurat?.penggunaan?.map((p, idx) => (
+            <li key={idx}>
+              {p.tanggal}: {p.keterangan} - Rp {p.jumlah.toLocaleString("id-ID")}
+            </li>
+          ))}
+        </ul>
+        <div className="flex flex-col sm:flex-row gap-2 mt-2">
+          <input
+            type="number"
+            placeholder="Jumlah (Rp)"
+            value={daruratForm.jumlah}
+            onChange={(e) => setDaruratForm({ ...daruratForm, jumlah: e.target.value })}
+            className="px-3 py-2 border rounded-md w-full sm:w-1/3"
+          />
+          <input
+            type="text"
+            placeholder="Keterangan"
+            value={daruratForm.keterangan}
+            onChange={(e) => setDaruratForm({ ...daruratForm, keterangan: e.target.value })}
+            className="px-3 py-2 border rounded-md w-full sm:w-2/3"
+          />
+        </div>
+        <button
+          onClick={() => handleAddDarurat(selectedDetail)}
+          className="mt-2 px-3 py-1 bg-red-600 text-white rounded"
+        >
+          Tambahkan Penggunaan Darurat
+              </button>
             </div>
           </div>
         </div>
-      </div>
     )}
   </div>
 ))}
